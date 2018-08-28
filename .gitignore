@@ -38,3 +38,6 @@ buildNumber.properties
 gradle-app.setting
 !gradle-wrapper.jar
 .gradletasknamecache
+
+# spring
+.springBeans

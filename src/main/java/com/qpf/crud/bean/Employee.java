@@ -64,6 +64,14 @@ public class Employee {
         this.deptId = deptId;
     }
 
+	public Department getDepartment() {
+		return department;
+	}
+
+	public void setDepartment(Department department) {
+		this.department = department;
+	}
+
 	@Override
 	public String toString() {
 		return "Employee [emplId=" + emplId + ", emplName=" + emplName + ", emplGender=" + emplGender + ", emplEmail="

@@ -24,6 +24,11 @@
 		<property name="mapperLocations" value="classpath:mapper/*.xml"></property>
 	</bean>
 	
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg name="sqlSessionFactory" ref="sqlSessionFactoryBean"/>
+		<constructor-arg name="executorType" value="BATCH"/>
+	</bean>
+	
 	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
 		<property name="basePackage" value="com.qpf.crud.dao"></property>
 	</bean>

@@ -32,6 +32,10 @@ public class MvcTest {
 	public void init() {
 		mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
 	}
+	@Test
+	public void test() {
+		System.out.println("test");
+	}
 	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	@Test

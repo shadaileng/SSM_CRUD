@@ -48,7 +48,7 @@ public class EmployeeCtroller {
 		// 使用PageInfo封装查询结果,封装后的对象包含分页信息
 		PageInfo<Employee> pageInfo = new PageInfo<Employee>(employess, 5);
 		
-		return Msg.msg("100", "成功").add("pageInfo", pageInfo);
+		return Msg.success().add("pageInfo", pageInfo);
 	}
 	
 }

@@ -10,9 +10,16 @@ public class Msg {
 	private String desc;
 	/** 绑定数据  **/
 	Map<String, Object> data = new HashMap<String, Object>();
-	
-	public static Msg msg(String code, String desc) {
-		return new Msg(code, desc);
+
+	public static Msg success() {
+		return new Msg("100", "成功");
+	}
+	public static Msg fail() {
+		return new Msg("200", "失败");
+	}
+	public Msg desc(String desc) {
+		this.desc = desc;
+		return this;
 	}
 	// 链式绑定数据
 	public Msg add(String key, Object value) {
@@ -25,7 +32,6 @@ public class Msg {
 		this.code = code;
 		this.desc = desc;
 	}
-
 	public String getCode() {
 		return code;
 	}

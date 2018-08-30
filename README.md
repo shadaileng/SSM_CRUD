@@ -143,6 +143,14 @@
 
 - 页面引入jquery.js,bootstrap.min.css和bootstrap.min.js
 
+> 项目根路径为下面`/项目名称`,使用`request.getContextPath()`可以得到
+
+```
+<% pageContext.setAttribute("APP_PATH", request.getContextPath()) %>
+
+<script type="text/javascript" src="${APP_PATH}/static/..."></script>
+```
+
 ## 编写整合SSM配置文件
 
 
@@ -484,6 +492,63 @@ public class GenerateMapper {
 }
 ```
 
+5. `Employee`类添加`department`属性,封装部门信息
+
+6. 新增查询结果封装`Department`接口
+
+```
+# com.qpf.crud.dao.EmployeeMapper
+public interface EmployeeMapper {
+    /** 列表查询员工并封装部门信息 **/
+    List<Employee> selectByExampleWithDept(EmployeeExample example);
+    
+    /** 查询员工并封装部门信息 **/
+    Employee selectByPrimaryKeyWithDept(Integer emplId);
+}
+
+# /src/main/resources/mapper/EmployeeMapper.xml
+
+<resultMap id="BaseResultMapWithDept" type="com.qpf.crud.bean.Employee">
+    <id column="empl_id" jdbcType="INTEGER" property="emplId" />
+    <result column="empl_name" jdbcType="VARCHAR" property="emplName" />
+    <result column="empl_gender" jdbcType="CHAR" property="emplGender" />
+    <result column="empl_email" jdbcType="VARCHAR" property="emplEmail" />
+    <result column="dept_id" jdbcType="INTEGER" property="deptId" />
+    <association property="department" column="dept_id" javaType="com.qpf.crud.bean.Department">
+    	<id property="deptId" column="dept_id"/>
+    	<result property="deptName" column="dept_name"/>
+    </association>
+</resultMap>
+<!-- 查询员工和部门信息 -->
+<sql id="Base_Column_List_With_Dept">
+    e.empl_id, e.empl_name, e.empl_gender, e.empl_email, e.dept_id, d.dept_id, d.dept_name
+</sql>
+
+<!-- 列表查询员工并封装部门信息 -->
+<select id="selectByExampleWithDept" parameterType="com.qpf.crud.bean.EmployeeExample" resultMap="BaseResultMapWithDept">
+    select
+    <if test="distinct">
+      distinct
+    </if>
+    <include refid="Base_Column_List_With_Dept" />
+    from empl e 
+    left join dept d on e.dept_id = d.dept_id
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+</select>
+<!-- 查询员工并封装部门信息 -->
+<select id="selectByPrimaryKeyWithDept" parameterType="java.lang.Integer" resultMap="BaseResultMapWithDept">
+    select 
+    <include refid="Base_Column_List_With_Dept" />
+    from empl e, dept d
+    where e.dept_id = e.dept_id and empl_id = #{emplId,jdbcType=INTEGER}
+</select>
+```
+
 ## dao单元测试
 
 1. 导入 spring test包
@@ -686,7 +751,17 @@ public String listEmpl(@RequestParam(name="pageNum", defaultValue="1") Integer p
 
 ## Mock测试
 
-> `Mock`测试需要`servlet-api`版本号`3.0.0`以上
+> `Mock`测试需要`servlet-api`版本号`3.1.0`以上，加载`springmvc`配置文件
+
+```
+<!-- https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api -->
+<dependency>
+    <groupId>javax.servlet</groupId>
+    <artifactId>javax.servlet-api</artifactId>
+    <version>3.1.0</version>
+    <scope>provided</scope>
+</dependency>
+```
 
 1. 测试类添加注解`@ContextConfiguration(locations = {"classpath:applicationContext.xml", "classpath:springmvc.xml"})`,加载IOC容器和SpringMVC配置文件
 
@@ -779,5 +854,315 @@ public class MvcTest {
 			System.out.println(employee.getEmplId() + "\t" + employee.getEmplName() + "\t" + employee.getEmplGender() + "\t" + employee.getEmplEmail() + "\t" + (employee.getDepartment() == null ? "--" : employee.getDepartment().getDeptName()));
 		}
 	}
+}
+```
+
+## 编写列表页面
+
+1. 页面头部引入`bootstrap`,声明`c`标签
+
+```
+<%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<!DOCTYPE html>
+<html>
+	<head>
+    <% pageContext.setAttribute("APP_PATH", request.getContextPath()); %>
+    <script type="text/javascript" src="${ APP_PATH }/static/js/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript" src="${ APP_PATH }/static/js/popper.min.js"></script>
+    <link rel="stylesheet" href="${ APP_PATH }/static/bootstrap-4.0.0-dist/css/bootstrap.min.css">
+    <script type="text/javascript" src="${ APP_PATH }/static/bootstrap-4.0.0-dist/js/bootstrap.min.js"></script>
+	<head>
+<html>
+```
+
+2. 使用`bootstrap`的栅格布局,将页面分为4行
+
+```
+<!-- 栅格容器 -->
+<div class="container">
+    <!-- 标题 -->
+	<div class="row"></div>
+    <!-- 多选操作按钮 -->
+	<div class="row"></div>
+    <!-- 表格 -->
+	<div class="row" style="height: 400px;"></div>
+    <!-- 分页信息 -->
+	<div class="row"></div>
+	</div>
+</div>
+```
+
+3. 标题行占用该行所有列,多选操作按钮占4列并列偏移8列
+
+```
+<div class="container">
+	<div class="row">
+		<div class="col-md-12">
+			<h1>SSM-CRUD</h1>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-md-4 offset-md-8">
+			<button class="btn btn-primary">新增</button>
+			<button class="btn btn-danger">删除</button>
+		</div>
+	</div>
+	<div class="row" style="height: 400px;">...</div>
+	<div class="row">...</div>
+</div>
+```
+
+4. 表格行,使用`<c:forEach>`标签遍历分页数据中的list
+
+```
+<c:forEach items="${pageInfo.list }" var="empl">
+
+</c:forEach>
+```
+
+5. 使用`bootstrap`的分页组件
+
+```
+<nav aria-label="Page navigation example">
+    <ul class="pagination">
+      <li class="page-item"><a class="page-link"  href="${APP_PATH }/empls?pageNum=1">首页</a></li>
+    <c:choose>
+    	<c:when test="${pageInfo.hasPreviousPage }">
+    	    <li class="page-item">
+    	      <a class="page-link" href="${APP_PATH }/empls?pageNum=${pageInfo.pageNum - 1 }" aria-label="Previous">
+    	        <span aria-hidden="true">&laquo;</span>
+    	        <span class="sr-only">Previous</span>
+    	      </a>
+    	    </li>
+    	</c:when>
+        <c:otherwise>
+    	    <li class="page-item disabled">
+    	      <a class="page-link" href="#" aria-label="Previous">
+    	        <span aria-hidden="true">&laquo;</span>
+    	        <span class="sr-only">Previous</span>
+    	      </a>
+    	    </li>
+        </c:otherwise>
+    </c:choose>
+    <c:forEach items="${pageInfo.navigatepageNums }" var="pageNum">
+    	<c:choose>
+    		<c:when test="${pageNum == pageInfo.pageNum }">
+    			<li class="page-item active"><a class="page-link"  href="${APP_PATH }/empls?pageNum=${pageNum}">${pageNum}</a></li>
+    		</c:when>
+    		<c:otherwise>
+    			<li class="page-item"><a class="page-link"  href="${APP_PATH }/empls?pageNum=${pageNum}">${pageNum}</a></li>
+    		</c:otherwise>
+    	</c:choose>
+    </c:forEach>
+    <c:choose>
+    	<c:when test="${pageInfo.hasNextPage }">
+    		<li class="page-item">
+    	      <a class="page-link" href="${APP_PATH }/empls?pageNum=${pageInfo.pageNum + 1 }" aria-label="Next">
+    	        <span aria-hidden="true">&raquo;</span>
+    	        <span class="sr-only">Next</span>
+    	      </a>
+    	    </li>
+    	</c:when>
+        <c:otherwise>
+        	<li class="page-item disabled">
+    	      <a class="page-link" href="#" aria-label="Next">
+    	        <span aria-hidden="true">&raquo;</span>
+    	        <span class="sr-only">Next</span>
+    	      </a>
+    	    </li>
+        </c:otherwise>
+    </c:choose>
+      <li class="page-item"><a class="page-link"  href="${APP_PATH }/empls?pageNum=${pageInfo.pages}">末页</a></li>
+    </ul>
+</nav>
+```
+> 完整的`list.jsp`源码
+
+```
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<!DOCTYPE html>
+<html>
+	<head>
+	<meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>员工列表</title>
+	<% pageContext.setAttribute("APP_PATH", request.getContextPath()); %>
+	<script type="text/javascript" src="${ APP_PATH }/static/js/jquery-3.3.1.min.js"></script>
+	<script type="text/javascript" src="${ APP_PATH }/static/js/popper.min.js"></script>
+	<link rel="stylesheet" href="${ APP_PATH }/static/bootstrap-4.0.0-dist/css/bootstrap.min.css">
+	<script type="text/javascript" src="${ APP_PATH }/static/bootstrap-4.0.0-dist/js/bootstrap.min.js"></script>
+	<script>
+		$(function() {
+			console.log("enter list page ...")
+		});
+	</script>
+	
+	</head>
+	<body>
+		<div class="container">
+			<div class="row">
+				<div class="col-md-12">
+					<h1>SSM-CRUD</h1>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-md-4 offset-md-8">
+					<button class="btn btn-primary">新增</button>
+					<button class="btn btn-danger">删除</button>
+				</div>
+			</div>
+			<div class="row" style="height: 400px;">
+				<div class="col-md-12">
+					<table class="table table-hover">
+						<thead>
+							<tr>
+								<th>#</th>
+								<th>Name</th>
+								<th>Gender</th>
+								<th>Email</th>
+								<th>Department</th>
+								<th>操作</th>
+							</tr>
+						</thead>
+						<tbody>
+							<c:forEach items="${pageInfo.list }" var="empl">
+								<tr>
+									<td>${empl.emplId }</td>
+									<td>${empl.emplName }</td>
+									<td>${empl.emplGender == "M" ? "男" : "女" }</td>
+									<td>${empl.emplEmail }</td>
+									<td>${empl.department.deptName }</td>
+									<td>
+										<button class="btn btn-primary btn-sm"><span class="glyphicon glyphicon-pencil"></span>修改</button>
+										<button class="btn btn-danger btn-sm"><span class="glyphicon glyphicon-trash"></span>删除</button>
+									</td>
+								</tr>
+							</c:forEach>
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-md-6">共${pageInfo.pages }页,第${pageInfo.pageNum }页,共${pageInfo.total }条记录</div>
+				<div class="col-md-6">
+					<nav aria-label="Page navigation example">
+					  <ul class="pagination">
+					  	<li class="page-item"><a class="page-link"  href="${APP_PATH }/empls?pageNum=1">首页</a></li>
+					    <c:choose>
+					    	<c:when test="${pageInfo.hasPreviousPage }">
+							    <li class="page-item">
+							      <a class="page-link" href="${APP_PATH }/empls?pageNum=${pageInfo.pageNum - 1 }" aria-label="Previous">
+							        <span aria-hidden="true">&laquo;</span>
+							        <span class="sr-only">Previous</span>
+							      </a>
+							    </li>
+					    	</c:when>
+						    <c:otherwise>
+							    <li class="page-item disabled">
+							      <a class="page-link" href="#" aria-label="Previous">
+							        <span aria-hidden="true">&laquo;</span>
+							        <span class="sr-only">Previous</span>
+							      </a>
+							    </li>
+						    </c:otherwise>
+					    </c:choose>
+					    <c:forEach items="${pageInfo.navigatepageNums }" var="pageNum">
+					    	<c:choose>
+					    		<c:when test="${pageNum == pageInfo.pageNum }">
+					    			<li class="page-item active"><a class="page-link"  href="${APP_PATH }/empls?pageNum=${pageNum}">${pageNum}</a></li>
+					    		</c:when>
+					    		<c:otherwise>
+					    			<li class="page-item"><a class="page-link"  href="${APP_PATH }/empls?pageNum=${pageNum}">${pageNum}</a></li>
+					    		</c:otherwise>
+					    	</c:choose>
+					    </c:forEach>
+					    <c:choose>
+					    	<c:when test="${pageInfo.hasNextPage }">
+					    		<li class="page-item">
+							      <a class="page-link" href="${APP_PATH }/empls?pageNum=${pageInfo.pageNum + 1 }" aria-label="Next">
+							        <span aria-hidden="true">&raquo;</span>
+							        <span class="sr-only">Next</span>
+							      </a>
+							    </li>
+					    	</c:when>
+						    <c:otherwise>
+						    	<li class="page-item disabled">
+							      <a class="page-link" href="#" aria-label="Next">
+							        <span aria-hidden="true">&raquo;</span>
+							        <span class="sr-only">Next</span>
+							      </a>
+							    </li>
+						    </c:otherwise>
+					    </c:choose>
+					  	<li class="page-item"><a class="page-link"  href="${APP_PATH }/empls?pageNum=${pageInfo.pages}">末页</a></li>
+					  </ul>
+					</nav>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
+```
+
+# 返回Json数据
+
+1. 导入`jackson-databind`包
+
+```
+<!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+    <version>2.9.5</version>
+</dependency>
+```
+
+2. 封装通用返回消息类`Msg`
+
+```
+public class Msg {
+	/** 100 - 成功 \n200 - 失败 **/
+	private String code;
+	/** 描述 ***/
+	private String desc;
+	/** 绑定数据  **/
+	Map<String, Object> data = new HashMap<String, Object>();
+	
+	public static Msg msg(String code, String desc) {
+		return new Msg(code, desc);
+	}
+	// 链式绑定数据
+	public Msg add(String key, Object value) {
+		this.data.put(key, value);
+		return this;
+	}
+	public Msg() {}
+	public Msg(String code, String desc) {
+		super();
+		this.code = code;
+		this.desc = desc;
+	}
+	// getter setter
+}
+```
+
+3. 控制器添加一个json处理方法,添加注解`@ResponseBody`
+
+```
+@ResponseBody
+@RequestMapping("/empls2json")
+public Msg listEmpl2Json(@RequestParam(value="pageNum", defaultValue="1") Integer pageNum) {
+	
+	// 在查询之前那设置分页,pageNum: 当前页码, pageSize: 每页显示的大小
+	PageHelper.startPage(pageNum, 5);
+	
+	List<Employee> employess = employeeService.getAll();
+	
+	// 使用PageInfo封装查询结果,封装后的对象包含分页信息
+	PageInfo<Employee> pageInfo = new PageInfo<Employee>(employess, 5);
+	
+	return Msg.msg("100", "成功").add("pageInfo", pageInfo);
 }
 ```

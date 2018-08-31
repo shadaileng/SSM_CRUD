@@ -11,7 +11,8 @@
 	</typeAliases>
 	<plugins>
 		<plugin interceptor="com.github.pagehelper.PageInterceptor">
-			<!-- 使用下面的方式配置参数，后面会有所有的参数介绍 -->
+			<!-- 分页合理化参数，默认值为false -->
+			<property name="reasonable" value="true"/>
 		</plugin>
 	</plugins>
 </configuration>

@@ -16,7 +16,7 @@ import com.qpf.crud.bean.Msg;
 import com.qpf.crud.service.EmployeeService;
 
 @Controller
-public class EmployeeCtroller {
+public class EmployeeController {
 	
 	@Autowired
 	EmployeeService employeeService;

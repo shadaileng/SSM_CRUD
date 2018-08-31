@@ -1,7 +1,7 @@
 package com.qpf.crud.dao;
 
 import java.util.List;
-//import java.util.UUID;
+import java.util.UUID;
 
 import org.apache.ibatis.session.SqlSession;
 import org.junit.Test;
@@ -27,7 +27,8 @@ public class CrudTest {
 
 	@Test
 	public void testDept() {
-//		departmentMapper.insertSelective(new Department(null, "Develop"));
+		departmentMapper.insertSelective(new Department(null, "开发部"));
+		departmentMapper.insertSelective(new Department(null, "测试部"));
 //		departmentMapper.updateByPrimaryKey(new Department(2, "Test"));
 		Department department = departmentMapper.selectByPrimaryKey(1);
 		System.out.println(department);
@@ -53,13 +54,13 @@ public class CrudTest {
 		System.out.println(employee);
 		
 		// 2. 获取批量mapper
-//		EmployeeMapper mapper = sqlSession.getMapper(EmployeeMapper.class);
+		EmployeeMapper mapper = sqlSession.getMapper(EmployeeMapper.class);
 		
 		// 3. 批量插入
-//		for (int i = 0; i < 100; i++) {
-//			String name = UUID.randomUUID().toString().substring(0, 5) + i;
-//			mapper.insertSelective(new Employee(null, name, "M", name + "@qq.com", 2));
-//		}
+		for (int i = 0; i < 100; i++) {
+			String name = UUID.randomUUID().toString().substring(0, 5) + i;
+			mapper.insertSelective(new Employee(null, name, "M", name + "@qq.com", 2));
+		}
 		
 		List<Employee> employees = null;
 		// 列表查询,未封装Department

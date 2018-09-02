@@ -1,12 +1,16 @@
 package com.qpf.crud.bean;
 
+import javax.validation.constraints.Pattern;
+
 public class Employee {
     private Integer emplId;
 
+    @Pattern(regexp="(^[\\u2E80-\\u9FFF0-9a-zA-Z]{3,10}$)", message="用户名3到10字符")
     private String emplName;
 
     private String emplGender;
 
+    @Pattern(regexp="^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z0-9]{2,6}$", message="邮箱格式不正确")
     private String emplEmail;
 
     private Integer deptId;

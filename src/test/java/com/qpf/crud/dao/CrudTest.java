@@ -11,6 +11,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import com.qpf.crud.bean.Department;
+import com.qpf.crud.bean.DepartmentExample;
+import com.qpf.crud.bean.DepartmentExample.Criteria;
 import com.qpf.crud.bean.Employee;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -29,9 +31,20 @@ public class CrudTest {
 	public void testDept() {
 		departmentMapper.insertSelective(new Department(null, "开发部"));
 		departmentMapper.insertSelective(new Department(null, "测试部"));
-//		departmentMapper.updateByPrimaryKey(new Department(2, "Test"));
-		Department department = departmentMapper.selectByPrimaryKey(1);
-		System.out.println(department);
+//		departmentMapper.updateByPrimaryKey(new Department(1, "开发部"));
+//		departmentMapper.updateByPrimaryKey(new Department(2, "测试部"));
+//		Department department = departmentMapper.selectByPrimaryKey(3);
+//		System.out.println(department);
+//		DepartmentExample example = new DepartmentExample();
+//		Criteria criteria = example.createCriteria();
+//		criteria.andDeptIdGreaterThan(2);
+//		departmentMapper.deleteByExample(example);
+		
+		List<Department> list = departmentMapper.selectByExample(null);
+		for (Department department : list) {
+			System.out.println(department);
+		}
+		System.out.println("finish!");
 	}
 	
 	@Test
@@ -68,5 +81,6 @@ public class CrudTest {
 		// 列表查询，封装Department
 		employees = employeeMapper.selectByExampleWithDept(null);
 		System.out.println(employees);
+		System.out.println("finish!");
 	}
 }

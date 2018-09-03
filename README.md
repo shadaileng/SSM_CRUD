@@ -233,7 +233,8 @@
         - 数据库配置文件: `dbconfig.properties`:
         ```
         jdbc.jdbcUrl=jdbc:mysql://localhost:3306/ssm_crud
-        jdbc.driverClass=com.,ysql.jdbc.Driver
+        # 指定utf-8编码
+        jdbc.driverClass=com.mysql.jdbc.Driver?useUnicode=true&characterEncoding=utf-8
         jdbc.user=root
         jdbc.password=123456
         ```
@@ -342,20 +343,23 @@
 1. 数据库生成表
 
 ```
+-- 创建数据库时指定utf-8编码
+-- CREATE DATABASE IF NOT EXISTS ssm DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+
 CREATE TABLE empl (
-  empl_id int(11) auto_increment not null,
-  empl_name varchar(255) not null,
-  empl_gender char(1) not null,
-  empl_email varchar(255) not null,
-  dept_id int(11) not null,
+  empl_id int(11) auto_increment not null comment '员工id',
+  empl_name varchar(255) not null comment '员工姓名',
+  empl_gender char(1) not null comment '员工性别',
+  empl_email varchar(255) not null comment '员工邮箱',
+  dept_id int(11) not null comment '员工部门id',
   PRIMARY KEY (empl_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = '员工表';
 
 CREATE TABLE dept (
-  dept_id int(11) auto_increment not null,
-  dept_name varchar(255) not null,
+  dept_id int(11) auto_increment not null comment '部门id',
+  dept_name varchar(255) not null comment '部门名称',
   PRIMARY KEY (dept_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = '部门表';
 
 ALTER TABLE empl ADD FOREIGN KEY (dept_id) REFERENCES dept(dept_id);
 ```
@@ -677,7 +681,7 @@ public class EmployeeService {
 }
 ```
 
-3. 新建`Employe`控制器`com.qpf.crud.controller.EmployeeCtroller`,并添加注解`@Controller`
+3. 新建`Employe`控制器`com.qpf.crud.controller.EmployeeController`,并添加注解`@Controller`
 
 4. `Employee`列表显示,请求路径`/empls`,显示页面`list`
 
@@ -723,7 +727,8 @@ public class EmployeeService {
 ```
 <plugins>
 	<plugin interceptor="com.github.pagehelper.PageInterceptor">
-		<!-- 使用下面的方式配置参数，后面会有所有的参数介绍 -->
+		<!-- 分页合理化参数，默认值为false。 -->
+		<property name="reasonable" value="true"/>
 	</plugin>
 </plugins>
 ```
@@ -1130,8 +1135,15 @@ public class Msg {
 	/** 绑定数据  **/
 	Map<String, Object> data = new HashMap<String, Object>();
 	
-	public static Msg msg(String code, String desc) {
-		return new Msg(code, desc);
+	public static Msg success() {
+		return new Msg("100", "成功");
+	}
+	public static Msg fail() {
+		return new Msg("200", "失败");
+	}
+	public Msg desc(String desc) {
+		this.desc = desc;
+		return this;
 	}
 	// 链式绑定数据
 	public Msg add(String key, Object value) {
@@ -1163,6 +1175,975 @@ public Msg listEmpl2Json(@RequestParam(value="pageNum", defaultValue="1") Intege
 	// 使用PageInfo封装查询结果,封装后的对象包含分页信息
 	PageInfo<Employee> pageInfo = new PageInfo<Employee>(employess, 5);
 	
-	return Msg.msg("100", "成功").add("pageInfo", pageInfo);
+	return Msg.success().add("pageInfo", pageInfo);
 }
+```
+
+# 前端使用Vue.js
+
+1. 新建文件`/src/main/webapp/static/js/vue.js`,用于编写`vue`组件.
+
+2. 导入`vue.js`以及组件文件
+
+```
+<script src="https://cdn.bootcss.com/vue/2.4.2/vue.min.js"></script>
+<script type="text/javascript" src="${ APP_PATH }/static/js/vue.js"></script>
+```
+
+3. 初始化`vue`
+
+```
+$(function() {
+   var vm = new Vue({
+        el: '#app',
+        data: {}
+})
+```
+
+4. 组件都放在容器`<div class="container" id="app"></div>`内
+
+## table_com组件
+
+1. `vue.js`文件编写`table_com`组件
+
+```
+Vue.component('table_com', {
+		template: `
+		<div class="col-md-12">
+		    <table class="table table-hover">
+    			<thead>
+    				<tr>
+    				    <th>#</th><th>Name</th><th>Gender</th><th>Email</th><th>Department</th><th>操作</th>
+    				</tr>
+    			</thead>
+					<tbody>
+						<tr v-for="item in list">
+							<td>{{ item.emplId }}</td>
+							<td>{{ item.emplName }}</td>
+							<td>{{ item.emplGender === "M" ? "男" : "女" }}</td>\
+							<td>{{ item.emplEmail }}</td>
+							<td>{{ item.department && item.department.deptName }}</td>
+							<td>
+								<button class="btn btn-primary btn-sm"><span class="glyphicon glyphicon-pencil"></span>修改</button>
+								<button class="btn btn-danger btn-sm"><span class="glyphicon glyphicon-trash"></span>删除</button>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>`,
+		props: ['list'],
+	})
+```
+
+2. `list`界面使用`table_com`组件用于显示后台返回的员工列表数据,`vue`对象`vm`添加数据`list`,并绑定`table_com`组件中
+
+```
+
+{
+    data: {
+        list: []
+    }
+}
+
+<div class="row" style="height: 400px;">
+	<table_com :list="list"></table_com>
+</div>
+```
+
+## 分页组件`pagination`
+
+1. `vm`添加对象`page`存储分页信息
+
+```
+{
+    data: {
+        page: {
+			pageNum: '',
+			pages: '',
+			total: '',
+			hasPreviousPage: '',
+			hasNextPage: '',
+			navigatepageNums: []
+		}
+    }
+}
+```
+
+2. 编写`pagination`,显示分页信息以及操作分页查询
+
+```
+Vue.component('pagination', {
+	template: `
+		<div class="row">
+			<div class="col-md-6 text-center">共 {{ page.pages }} 页,第{{ page.pageNum }}页,共{{ page.total }}条记录</div>
+			<div class="col-md-6">
+				<nav aria-label="Page navigation">
+					<ul class="pagination">
+						<li><a href="#" :nav="1" @click="pageTo">首页</a></li>
+						<li>
+							<a href="#" :class="{disabled : !page.hasPreviousPage}" :nav="page.pageNum - 1" @click="pageTo"aria-label="Previous">
+								<span aria-hidden="true">&laquo;</span>
+							</a>
+					    </li>
+						<li v-for="nav in page.navigatepageNums" :class="{active : page.pageNum === nav}"><a href="#" :nav="nav" @click="pageTo">{{ nav }}</a></li>
+						<li>
+							<a href="#" aria-label="Next"  :nav="page.pageNum + 1" @click="pageTo">
+								<span aria-hidden="true">&raquo;</span>
+							</a>
+						</li>
+						<li><a href="#" :nav="page.total" @click="pageTo">末页</a></li>
+					</ul>
+				</nav>
+			</div>
+		</div>`,
+	props: ['page'],
+	methods: {
+		pageTo: function (event) {
+			var event = event || window.event
+			event.preventDefault()
+			var nav = event.currentTarget.attributes["nav"].value
+			this.$emit('pageto', nav)
+			return false;
+		}
+	}
+})
+```
+
+> `pageTo`函数是分页操作的回调函数,触发自定义事件`pageto`,将跳转页码传到父组件
+
+3. `Vue`对像调后台分页查询接口,返回结果修改`page`属性和`list`属性
+
+```
+methods: {
+    getEmpls: function (pageNum) {
+    	$.ajax({
+    		url: '${ APP_PATH }/empls2json?pageNum=' + pageNum,
+    		method: 'GET',
+    		success:  (result) => {
+    			var pageInfo = result && result.data && result.data && result.data.pageInfo
+    			this.list = pageInfo && pageInfo.list
+    			this.page = {
+    				pageNum: pageInfo.pageNum,
+    				pages: pageInfo.pages,
+    				total: pageInfo.total,
+    				hasPreviousPage: pageInfo.hasPreviousPage,
+    				hasNextPage: pageInfo.hasNextPage,
+    				navigatepageNums: pageInfo.navigatepageNums
+    			}
+    		}
+    	})
+    }
+}
+```
+
+4. `list`界面使用`pagination`组件,绑定`page`属性,设置`pageto`事件回调函数查询数据
+
+```
+<pagination @pageto="getEmpls" :page="page"></pagination>
+```
+## `modalpanel`模态框组件
+
+1. 编写组件
+
+```
+Vue.component('modalpanel', {
+		template: `
+			<div class="modal-content">
+		      <div class="modal-header">
+		        <h5 class="modal-title" id="exampleModalLabel">{{ title }}</h5>
+		        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		      </div>
+		      <div class="modal-body">
+				<form>
+					<div class="form-group row" >\
+						<label for="emplName" class="col-md-2 control-label text-center">姓名</label>
+						<div class="col-md-8" :class="[name_status.status?`has-success`:`has-error`]">
+							<input type="text" class="form-control" placeholder="5到16位英文或3到6位中文" v-model="emplName" name="emplName" 
+							@keyup="validateName" @blur="hide_tips"
+							data-toggle="popover" data-placement="top" 
+							data-trigger="manual" data-delay="{show: 500, hide: 100}">
+						</div>
+					</div>
+					<div class="form-group row">
+						<label for="emplEmail" class="col-md-2 control-label text-center">邮箱</label>
+						<div class="col-md-8" :class="[email_status.status?`has-success`:`has-error`]">
+							<input type="email" class="form-control" placeholder="yourname@example.com" v-model="emplEmail" name="emplEmail" 
+							@keyup="validateEmail" @blur="hide_tips"
+							data-toggle="popover" data-placement="top" 
+							data-trigger="manual" data-delay="{show: 500, hide: 100}">
+						</div>
+					</div>
+					<div class="form-group row">
+						<label for="emplGender" class="col-md-2 control-label text-center">性别</label>
+						<div class="col-md-8">
+							<div class="form-check form-check-inline col-md-2">
+							  <input class="form-check-input" type="radio" name="emplGender" value="M" checked v-model="emplGender">
+							  <label class="form-check-label" for="inlineRadio1">男</label>
+							</div>
+							<div class="form-check form-check-inline col-md-2">
+							  <input class="form-check-input" type="radio" name="emplGender" value="F" v-model="emplGender">
+							  <label class="form-check-label" for="inlineRadio2">女</label>
+							</div>
+						</div>
+					</div>
+					<div class="form-group row">
+						<label for="deptId" class="col-md-2 control-label text-center">部门</label>
+						<div class="col-md-4">
+							<select id="inputState" class="form-control"  v-model="deptId">
+								<option v-for="(dept, i) in depts" :key="i" :value="dept.deptId" >{{ dept.deptName }}</option>
+							</select>
+						</div>
+					</div>
+				</form>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+		        <button type="button" class="btn btn-primary" @click="insert">{{ opt }}</button>
+		      </div>
+		    </div>
+		`,
+		props: ['title', 'opt', 'depts', 'name_status', 'email_status', 'data'],
+		data: function () {
+			return {
+				emplName: '',
+				emplEmail: '',
+				emplGender: '',
+				deptId: '',
+			}
+		},
+		methods: {
+			hide_tips: function (e) {
+				$(e.currentTarget).popover('hide')
+			},
+			validateName: function () {
+				this.$emit('validate_name', this.$data.emplName)
+			},
+			validateEmail: function () {
+				this.$emit('validate_email', this.$data.emplEmail)
+			},
+			insert: function () {
+				// 1. 数据校验
+				if (!this.name_status.status || !this.email_status.status){
+					$('[name="emplName"]').attr('data-content', this.name_status.desc)
+					$('[name="emplName"]').popover('show')
+					$('[name="emplEmail"]').attr('data-content', this.email_status.desc)
+					$('[name="emplEmail"]').popover('show')
+					return
+				}
+				// 2. 封装数据
+				var data = {
+					emplName: this.$data.emplName,
+					emplEmail: this.$data.emplEmail,
+					emplGender: this.$data.emplGender,
+					deptId: this.$data.deptId
+				}
+				// 3. 触发事件
+				this.$emit('insert', data)
+			}
+		},
+		watch: {
+			name_status: function() {
+				$('[name="emplName"]').attr('data-content', this.name_status.desc)
+				$('[name="emplName"]').popover('show')
+			},
+			email_status: function() {
+				$('[name="emplEmail"]').attr('data-content', this.email_status.desc)
+				$('[name="emplEmail"]').popover('show')
+			},
+			data: function () {
+				this.emplName = this.data.emplName
+				this.emplEmail = this.data.emplEmail
+				this.emplGender = this.data.emplGender
+				this.deptId = this.data.deptId
+			}
+		}
+	})
+```
+
+2. `Vue`对象添加数据
+
+```
+{
+    data: {
+        modal: {
+			depts: [],
+			name_status: {
+				status: false,
+				desc: ''
+			},
+			email_status: {
+				status: false,
+				desc: ''
+			},
+			modal_data: {
+				emplName: '',
+				emplEmail: '',
+				emplGender: '',
+				deptId: '',
+			}
+		}
+    }
+}
+```
+
+3. `list`使用`modal_panel`组件,新增按钮显示模态框,并查询部门数据更新`depts`
+
+```
+<button class="btn btn-primary" data-toggle="modal" data-target="#modal_panel" @click="enter_add_panel">新增</button>
+<div class="modal fade" id="modal_panel" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  	<div class="modal-dialog" role="document">
+  		<modalpanel 
+  			title="新增用户" 
+  			opt="保存" 
+  			:depts="modal.depts" 
+ 			:name_status="modal.name_status" 
+ 			:email_status="modal.email_status"
+ 			:data="modal.modal_data"
+ 			@validate_name="validate_name"
+ 			@validate_email="validate_email"
+ 			@insert="insert"></modalpanel>
+  	</div>
+  </div>
+```
+
+4. `Vue`对象添加方法`validate_name`、`validate_email`和`insert`验证用户名和电子邮箱
+
+```
+methods: {
+	getDepts: function () {
+		$.ajax({
+			url: '${ APP_PATH }/depts2json',
+			method: 'GET',
+			success:  (result) => {
+				this.depts = result && result.data && result.data.depts
+			}
+		})
+	},
+	enter_add_panel: function () {
+		this.modal.modal_data = {
+			emplName: '',
+			emplEmail: '',
+			emplGender: '',
+			deptId: '',
+		}
+		this.getDepts()
+	},
+	validate_name: function (name) {
+    	var reg = /(^[\u2E80-\u9FFF0-9a-zA-Z]{3,10}$)/ 
+    	if (reg.test(name)){
+    		$.ajax({
+    			url: '${ APP_PATH }/validateName',
+    			method: 'POST',
+    			data: {name: name},
+    			success:  (result) => {
+    				if (result && result.code === "100") {
+    					// 用户名可用
+    					this.modal.name_status = {
+    						status: true,
+    						desc: result.desc
+    					}
+    				} else {
+    					// 用户名不可用
+    					this.modal.name_status = {
+    						status: false,
+    						desc: result.desc
+    					}
+    				}
+    			}
+    		})
+    	} else {
+    		// 用户名5到16位英文或3到6位中文
+    		this.modal.name_status = {
+    			status: false,
+    			desc: '用户名3到10字符'
+    		}
+    	}
+    	
+    },
+    validate_email: function(email) {
+    	var reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+    	if (reg.test(email)){
+    		this.modal.email_status = {
+    			status: true,
+    			desc: '邮箱可用'
+    		}
+    	} else {
+    		this.modal.email_status = {
+    			status: false,
+    			desc: '邮箱格式不正确'
+    		}
+    	}
+    },
+    insert: function (data) {
+    	$.ajax({
+    		url: '${ APP_PATH }/empl',
+    		method: 'POST',
+    		data: data,
+    		success:  (result) => {
+    			// 1. 是否插入成功
+    			if (result.code === "200") {
+    				// 2. 失败 - 显示失败信息
+    				var errors = result && result.data && result.data.errors
+    				if (errors.emplEmail) {
+    					this.modal.email_status = {
+    						status: false,
+    						desc: errors.emplEmail
+    					}
+    				}
+    				if (errors.emplName) {
+    					this.modal.name_status = {
+    						status: false,
+    						desc: errors.emplName
+    					}
+    				}
+    			} else {
+    				// 3. 显示最后一页
+    				this.getEmpls(this.page.total)
+    				// 4. 成功 - 关闭模态框
+    				$('#modal_panel').modal('hide')
+    				// 5. 清空模态框
+    				this.modal.modal_data = {
+    					emplName: '',
+    					emplEmail: '',
+    					emplGender: '',
+    					deptId: '',
+    				}
+    			}
+    		}
+    	})
+    }
+}
+
+# com.qpf.crud.controller.EmployeeController
+@Controller
+public class EmployeeController {
+	@Autowired
+	EmployeeService employeeService;
+		@ResponseBody
+	@RequestMapping(value="/empl", method=RequestMethod.POST)
+	public Msg insertEmpl(Employee employee) {
+		employeeService.saveEmpl(employee);
+		
+		return Msg.success().desc("保存成功");
+	}
+
+	@ResponseBody
+	@RequestMapping(value="/validateName", method=RequestMethod.POST)
+	public Msg insertEmpl(String name) {
+		boolean bool = employeeService.validateName(name);
+		if (bool) return Msg.success().desc("用户名可用");
+		return Msg.fail().desc("用户名不可用");
+	}
+}
+# com.qpf.crud.controller.DepartmentController
+@Controller
+public class DepartmentController {
+	@Autowired
+	DepartmentService departmentService;
+	@ResponseBody
+	@RequestMapping("/depts2json")
+	public Msg getAll2Json() {
+		List<Department> depts = departmentService.getAll();
+		return Msg.success().add("depts", depts);
+	}
+}
+
+# com.qpf.crud.service.EmployeeService
+@Service
+public class EmployeeService {
+	@Autowired
+	EmployeeMapper employeeMapper;
+
+	public int saveEmpl(Employee employee) {
+		int save = employeeMapper.insertSelective(employee);
+		return save;
+	}
+
+	public boolean validateName(String name) {
+		EmployeeExample example = new EmployeeExample();
+		Criteria criteria = example.createCriteria();
+		criteria.andEmplNameEqualTo(name);
+		long count = employeeMapper.countByExample(example);
+		return count <= 0;
+	}
+}
+
+# com.qpf.crud.service.DepartmentService
+@Service
+public class DepartmentService {
+	@Autowired
+	DepartmentMapper departmentMapper;
+
+	public List<Department> getAll() {
+		List<Department> depts = departmentMapper.selectByExample(null);
+		return depts;
+	}
+}
+```
+
+# JSR303验证
+
+> `tomcat-7.0`以下的版本需要更新最新的`el`包才能使用`JSR303`验证
+
+1. 导入`hibernate-validator`包
+
+```
+<!-- https://mvnrepository.com/artifact/org.hibernate/hibernate-validator -->
+<dependency>
+    <groupId>org.hibernate</groupId>
+    <artifactId>hibernate-validator</artifactId>
+    <version>5.4.1.Final</version>
+</dependency>
+```
+
+2. `Emplyee`类的`emplName`和`emplEmail`属性添加`@Pattern`注解
+
+```
+# com.qpf.crud.bean.Employee
+public class Employee {
+    @Pattern(regexp="(^[\\u2E80-\\u9FFF0-9a-zA-Z]{3,10}$)", message="用户名3到10字符")
+    private String emplName;
+    
+    @Pattern(regexp="^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z0-9]{2,6}$", message="邮箱格式不正确")
+    private String emplEmail;
+}
+```
+
+3. 控制器验证输入对象
+
+```
+# com.qpf.crud.controller.EmployeeController
+
+@Controller
+public class EmployeeController {
+	@Autowired
+	EmployeeService employeeService;
+	
+	@ResponseBody
+	@RequestMapping(value="/empl", method=RequestMethod.POST)
+	public Msg insertEmpl(@Valid Employee employee, BindingResult result) {
+		if (result.hasErrors()) {
+			Map<String, Object> map = new HashMap<String, Object>();
+			for (FieldError fieldError : result.getFieldErrors()) {
+				map.put(fieldError.getField(), fieldError.getDefaultMessage());
+			}
+			return Msg.fail().add("errors", map);
+		} else {
+			employeeService.saveEmpl(employee);
+			return Msg.success().desc("保存成功");
+		}
+	}
+}
+```
+
+4. 前端`Vue`对象处理错误信息
+
+```
+{
+    methods: {
+        insert: function (data) {
+			$.ajax({
+				url: '${ APP_PATH }/empl',
+				method: 'POST',
+				data: data,
+				success:  (result) => {
+					// 1. 是否插入成功
+					if (result.code === "200") {
+						// 2. 失败 - 显示失败信息
+						var errors = result && result.data && result.data.errors
+						if (errors.emplEmail) {
+							this.modal.email_status = {
+								status: false,
+								desc: errors.emplEmail
+							}
+						}
+						if (errors.emplName) {
+							this.modal.name_status = {
+								status: false,
+								desc: errors.emplName
+							}
+						}
+					} else {
+						// 3. 显示最后一页
+						this.getEmpls(this.page.total)
+						// 4. 成功 - 关闭模态框
+						$('#modal_panel').modal('hide')
+						// 5. 清空模态框
+						this.modal.modal_data = {
+							emplName: '',
+							emplEmail: '',
+							emplGender: '',
+							deptId: '',
+						}
+					}
+				}
+			})
+		}
+    }
+}
+```
+
+# 修改员工
+
+1. 修改员工模态框
+
+```
+<div class="modal fade" id="modal_panel_update" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+  	<modalpanel 
+  		title="更新用户" 
+  		opt="更新" 
+  		:depts="modal.depts" 
+ 		:name_status="modal.name_status" 
+ 		:email_status="modal.email_status"
+ 		:data="modal.modal_data"
+ 		@validate_name="validate_name"
+ 		@validate_email="validate_email"
+ 		@insert="update">
+ 	</modalpanel>
+  </div>
+</div>
+```
+
+2. `Vue`对象添加更新方法,根据`emplId`查询`Employee`方法,控制器添加修改`Employee`方法
+
+```
+{
+    methods: {
+        update: function (data) {
+		//	data._method = "PUT" // 发送POST请求需要添加这个参数
+			$.ajax({
+				url: '${ APP_PATH }/empl/' + data.emplId,
+				method: 'PUT',
+				data: data,
+				success:  (result) => {
+					// 1. 是否插入成功
+					if (result.code === "200") {
+						// 2. 失败 - 显示失败信息
+						var errors = result && result.data && result.data.errors
+						if (errors.emplEmail) {
+							this.modal.email_status = {
+								status: false,
+								desc: errors.emplEmail
+							}
+						}
+						if (errors.emplName) {
+							this.modal.name_status = {
+								status: false,
+								desc: errors.emplName
+							}
+						}
+					} else {
+						// 3. 显示当前页
+						this.getEmpls(this.page.pageNum)
+						// 4. 成功 - 关闭模态框
+						$('#modal_panel_update').modal('hide')
+						// 5. 清空模态框
+						this.modal.modal_data = {
+							emplName: '',
+							emplEmail: '',
+							emplGender: '',
+							deptId: '',
+						}
+					}
+				}
+			})
+		},
+		getEmplById: function (id) {
+			$.ajax({
+				url: '${ APP_PATH }/empl/' + id,
+				method: 'GET',
+				success:  (result) => {
+					this.modal.modal_data = result && result.data && result.data.empl
+				}
+			})
+		}
+    }
+}
+
+# com.qpf.crud.controller.EmployeeController
+
+@Controller
+public class EmployeeController {
+	
+	@Autowired
+	EmployeeService employeeService;
+	
+    @ResponseBody
+	@RequestMapping("/empl/{emplId}")
+	public Msg getEmplbyId(@PathVariable("emplId") Integer emplId) {
+		
+		Employee employee = employeeService.getEmplyeeById(emplId);
+		
+		return Msg.success().add("empl", employee);
+	}
+	
+	@ResponseBody
+	@RequestMapping(value="/empl/{emplId}", method=RequestMethod.PUT)
+	public Msg updateEmpl(Employee employee) {
+		int update = employeeService.updateEmplyee(employee);
+		System.out.println(update);
+		return Msg.success();
+	}
+}
+
+# com.qpf.crud.service.EmployeeService
+
+@Service
+public class EmployeeService {
+	@Autowired
+	EmployeeMapper employeeMapper;
+	
+	public Employee getEmplyeeById(int emplId) {
+		return employeeMapper.selectByPrimaryKeyWithDept(emplId);
+	}
+
+	public int updateEmplyee(Employee employee) {
+		employeeMapper.updateByPrimaryKeySelective(employee);
+		return 0;
+	}
+}
+
+```
+
+3. `table_com`组件修改按钮添加触发打开模态框的事件
+
+```
+# Vue.js
+{
+    template: `
+        ...
+        <button class="btn btn-primary btn-sm" :mdata="item.emplId" @click="enter_update_panel"><span class="glyphicon glyphicon-pencil"></span>修改</button>
+        ...
+    `,
+    methods: {
+        enter_update_panel: function (event) {
+    		var event = event || window.event
+    		var mdata = event.currentTarget.attributes["mdata"].value
+    		this.$emit('showupdatepanel', mdata)
+    	}
+    }
+}
+
+# list.jsp
+
+<table_com :list="list" @showupdatepanel="showupdatepanel"></table_com>
+
+```
+
+4. `Vue`对象添加打开模态框方法
+
+```
+{
+    methods: {
+        showupdatepanel: function (data) {
+    		this.getEmplById(data)
+    		this.getDepts()
+    		$('#modal_panel_update').modal('show')
+    	}
+    }
+}
+```
+
+> 发送`PUT`请求有两种方法
+
+1. 发送`POST`请求,添加`_method=PUT`参数
+
+```
+update: function (data) {
+	data._method = "PUT"
+	$.ajax({
+		url: '${ APP_PATH }/empl/' + data.emplId,
+		method: 'POST',
+		data: data,
+		success:  (result) => {}
+	})
+}
+		
+```
+
+2. 直接发送`PUT`请求,`web.xml`添加`HttpPutFormContentFilter`过滤器
+
+
+`Tomcat`只会在接受`POST`请求的时候封装请求体数据到`map`中,接受`PUT`请求`HttpPutFormContentFilter`过滤器重写的`getParameter()`方法从过滤封装的`map`中获取参数
+
+
+
+```
+update: function (data) {
+$.ajax({
+	url: '${ APP_PATH }/empl/' + data.emplId,
+	method: 'PUT',
+	data: data,
+	success:  (result) => {}
+})
+
+# web.xml
+
+<filter>
+	<filter-name>httpPutFormContentFilter</filter-name>
+	<filter-class>org.springframework.web.filter.HttpPutFormContentFilter</filter-class>
+</filter>
+<filter-mapping>
+	<filter-name>httpPutFormContentFilter</filter-name>
+	<url-pattern>/*</url-pattern>
+</filter-mapping>
+```
+
+# 删除员工
+
+1. `table_com`组件添加多选框,设置全选,绑定多选数据
+
+```
+Vue.component('table_com', {
+	template: `
+	    <div class="col-md-12">
+			<table class="table table-hover">
+				<thead>
+					<tr>
+						<th><input type="checkbox" value="" v-model="chengkAll"></th><th>#</th><th>Name</th><th>Gender</th><th>Email</th><th>Department</th><th>操作</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr v-for="item in list">
+						<td><input type="checkbox" :value="item.emplId" v-model="chooselist"></td>
+						<td>{{ item.emplId }}</td>
+						<td>{{ item.emplName }}</td>
+						<td>{{ item.emplGender === "M" ? "男" : "女" }}</td>
+						<td>{{ item.emplEmail }}</td>
+						<td>{{ item.department && item.department.deptName }}</td>
+						<td>
+							<button class="btn btn-primary btn-sm" :mdata="item.emplId" @click="enter_update_panel"><span class="glyphicon glyphicon-pencil"></span>修改</button>\
+							<button class="btn btn-danger btn-sm" :mdata="item.emplId" @click="deleteEmpl"><span class="glyphicon glyphicon-trash"></span>删除</button>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>1,
+	props: ['list'],
+	data: function () {
+		return  {
+			chengkAll: false,
+			chooselist: []
+		}
+	},
+	methods: {
+		enter_update_panel: function (event) {
+			var event = event || window.event
+			var mdata = event.currentTarget.attributes["mdata"].value
+			this.$emit('showupdatepanel', mdata)
+		},
+		deleteEmpl: function (event) {
+			var event = event || window.event
+			var mdata = event.currentTarget.attributes["mdata"].value
+			this.chengkAll = false
+			this.chooselist = []
+			this.chooselist.push(Number(mdata))
+			this.$emit('deleteempl', this.chooselist)
+		}
+	},
+	watch: {
+		chooselist: function () {
+			this.$emit('deletelist', this.chooselist)
+		},
+		chengkAll: function () {
+			if (this.chengkAll) {
+				this.chooselist = []
+				this.list.forEach((e) => {
+					this.chooselist.push(e.emplId)
+				})
+			} else {
+				this.chooselist = []
+			}
+		},
+		list: function () {
+			this.chooselist = []
+			this.chengkAll = false
+		}
+	}
+})
+```
+
+2. 绑定多选触发事件, `Vue`对象添加相应方法
+
+```
+<table_com :list="list" @showupdatepanel="showupdatepanel" @deletelist="deletelist" @deleteempl="deleteEmpl"></table_com>
+
+{
+    methods: {
+        deletelist: function (list) {
+    		this.chooseList = list
+    	},
+    	deleteEmpl: function (list) {
+    		if (!(list instanceof Array)) {
+    			list = this.chooseList
+    		}
+    		if (list.length <= 0) return
+    		if (!confirm('是否确定[ ' + list + ' ]? ')) return
+    		$.ajax({
+    			url: '${ APP_PATH }/empl/' + list.join('-'),
+    			method: 'DELETE',
+    			success:  (result) => {
+    				if (result && result.code == "100") {
+    					alert("删除成功 !!")
+    					this.getEmpls(this.page.pageNum)
+    				} else {
+    					alert("删除失败 !!")
+    				}
+    			}
+    		})
+    	}
+    }
+}
+
+```
+
+3. 控制器添加输出员工方法
+
+```
+# com.qpf.crud.controller.EmployeeController
+
+@Controller
+public class EmployeeController {
+	
+	@Autowired
+	EmployeeService employeeService;
+	
+	private Logger logger = Logger.getLogger(getClass());
+	
+	@ResponseBody
+	@RequestMapping(value="/empl/{emplId}", method=RequestMethod.DELETE)
+	public Msg deleteEmpl(@PathVariable("emplId") String emplId) {
+		System.out.println(emplId);
+		String[] emplIds = emplId.split("-");
+		List<String> ids = Arrays.asList(emplIds);
+		List<Integer> id = new ArrayList<Integer>();
+		for (String str: ids) {
+			id.add(Integer.parseInt(str));
+		}
+		int delete = employeeService.deleteEmployees(id);
+		logger.info(delete);
+		return Msg.success();
+	}
+
+}
+
+# com.qpf.crud.service.EmployeeService
+
+@Service
+public class EmployeeService {
+
+	@Autowired
+	EmployeeMapper employeeMapper;
+    
+    public int deleteEmployees(List<Integer> ids) {
+		EmployeeExample example = new EmployeeExample();
+		example.createCriteria().andEmplIdIn(ids);
+		employeeMapper.deleteByExample(example );
+		return 0;
+	}
+}
+
 ```
